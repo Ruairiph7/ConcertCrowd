@@ -21,7 +21,7 @@ mutable struct EventTree{T1<:Int,T2<:Real}
     end #function
 end #struct
 EventTree(eventData::EventData) = EventTree{eltype(eventData.details),typeof(eventData.δt)}(eventData)
-EventTree(details::AbstractVector{<:Real}, δt::Real) = EventTree(EventData(details,δt))
+EventTree(details::AbstractVector{<:Int}, δt::Real) = EventTree(EventData(details,δt))
 EventTree() = EventTree([0],Inf)
 
 function isLessThan(event1::EventData, event2::EventData)
@@ -74,7 +74,7 @@ function addToTree!(node::maybeNothing{EventTree}, eventData::EventData)
     end #if
     return nothing
 end #function
-addToTree!(node::maybeNothing{EventTree}, details::AbstractVector, δt::Real) = addToTree!(node, EventData(details,δt))
+addToTree!(node::maybeNothing{EventTree}, details::AbstractVector{<:Int}, δt::Real) = addToTree!(node, EventData(details,δt))
 
 
 function getTreeMin(node::EventTree)
@@ -122,8 +122,8 @@ function deleteNode!(node::maybeNothing{EventTree}, dataToBeDeleted::EventData)
     node = deleteNode(node,dataToBeDeleted)
     return nothing
 end #function
-deleteNode!(node::maybeNothing{EventTree}, details::AbstractVector, δt::Real) = deleteNode!(node,EventData(details,δt))
-
+deleteNode!(node::maybeNothing{EventTree}, details::AbstractVector{<:Int}, δt::Real) = deleteNode!(node,EventData(details,δt))
+deleteNode!(node::maybeNothing{EventTree}, idx::Int, δt::Real) = deleteNode!(node,[idx],δt)
 
 ##############################################################
 #Make use of the AbstractTrees.jl interface 
