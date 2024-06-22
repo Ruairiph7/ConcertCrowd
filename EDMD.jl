@@ -15,16 +15,16 @@ function updateParticleToTime!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVecto
 end #function
 
 
-function getTimeToWallCollisions(r::SVector{2,Float64}, v::SVector{2,Float64}, R::Float64, Lx::Float64, Ly::Float64)
+function getTimeToWallCollisions(r::SVector{2,Float64}, v::SVector{2,Float64}, R::Float64, params::CrowdParams)
     #Compute time till collision with a wall in the x-direction
     if v[1] > 0
-        δtx::Float64 = (Lx-R-r[1])/v[1]
+        δtx::Float64 = (params.Lx-R-r[1])/v[1]
     else 
         δtx = (R-r[1])/v[1]
     end #if
     #Compute time till collision with a wall in the y-direction
     if v[2] > 0
-        δty::Float64 = (Ly-R-r[2])/v[2]
+        δty::Float64 = (params.Ly-R-r[2])/v[2]
     else 
         δty = (R-r[2])/v[2]
     end #if
