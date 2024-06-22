@@ -74,6 +74,7 @@ function addToTree!(node::maybeNothing{EventTree}, eventData::EventData)
     end #if
     return nothing
 end #function
+addToTree!(node::maybeNothing{EventTree}, details::AbstractVector, δt::Real) = addToTree!(node, EventData(details,δt))
 
 
 function getTreeMin(node::EventTree)
