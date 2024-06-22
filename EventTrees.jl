@@ -122,6 +122,7 @@ function deleteNode!(node::maybeNothing{EventTree}, dataToBeDeleted::EventData)
     node = deleteNode(node,dataToBeDeleted)
     return nothing
 end #function
+deleteNode!(node::maybeNothing{EventTree}, details::AbstractVector, δt::Real) = deleteNode!(node,EventData(details,δt))
 
 
 ##############################################################
