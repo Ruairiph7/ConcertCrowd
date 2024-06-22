@@ -58,7 +58,7 @@ function updateTreeForPerson!(eventTree::EventTree, nextEventTimes::Vector{Float
         #neighbour updates as node.people = [i,-2]
         #particle collisions as node.people = [i,j,n_col_j]
 
-    (xWallδt, yWallδt) = getTimeToWallCollisions(rs[i],vs[i],params.Rs[i],params.Lx,params.Ly)
+    (xWallδt, yWallδt) = getTimeToWallCollisions(rs[i],vs[i],params.Rs[i],params)
     neighbourListδt = getTimeToNeighbourUpdate()
 
     (minδtSoFar,typeIndicator) = findmin((xWallδt,yWallδt,neighbourListδt))
