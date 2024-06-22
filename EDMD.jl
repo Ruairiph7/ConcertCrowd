@@ -92,39 +92,39 @@ function updateTreeForPerson!(eventTree::EventTree, nextEventTimes::Vector{Float
 end #function
 
 
-function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float64}}, innerδts::Vector{Float64}, n_cols::Vector{Int64}, eventData::Vector{<:Int}, eventδt::Float64, eventTree::EventTree, nextEventTimes::Vector{Float64}, params::CrowdParams)
+function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float64}}, innerδts::Vector{Float64}, n_cols::Vector{Int64}, eventData::EventData, eventTree::EventTree, nextEventTimes::Vector{Float64}, params::CrowdParams)
 
-    if length(eventData) == 2
-        if eventData[2] == 0 #It's an x wall collision
+    if length(eventData.details) == 2
+        if eventData.details[2] == 0 #It's an x wall collision
 
-            i = eventData[1] #Get idx of person involved
-            updateParticleToTime!(rs,vs,innerδts,eventδt,i)
+            i = eventData.details[1] #Get idx of person involved
+            updateParticleToTime!(rs,vs,innerδts,eventData.δt,i)
             vs[i] = SVector(-vs[i][1],vs[i][2])
             n_cols[i] += 1
             updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
 
-        elseif eventData[2] == -1 #It's a y wall collision
+        elseif eventData.details[2] == -1 #It's a y wall collision
 
-            i = eventData[1] #Get idx of person involved
-            updateParticleToTime!(rs,vs,innerδts,eventδt,i)
+            i = eventData.details[1] #Get idx of person involved
+            updateParticleToTime!(rs,vs,innerδts,eventData.δt,i)
             vs[i] = SVector(vs[i][1],-vs[i][2])
             n_cols[i] += 1
             updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
 
-        elseif eventData[2] == -2 #It's a neighbourlist update
+        elseif eventData.details[2] == -2 #It's a neighbourlist update
 
         end #if
-    elseif length(eventData) == 3 #It's a person collision
+    elseif length(eventData.details) == 3 #It's a person collision
 
-        i = eventData[1]
-        j = eventData[2]
+        i = eventData.details[1]
+        j = eventData.details[2]
 
-        if n_cols[j] != eventData[3] #j has collided since scheduling the event
+        if n_cols[j] != eventData.details[3] #j has collided since scheduling the event
             updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
             return nothing
         else
-            updateParticleToTime!(rs,vs,innerδts,eventδt,i)
-            updateParticleToTime!(rs,vs,innerδts,eventδt,j)
+            updateParticleToTime!(rs,vs,innerδts,eventData.δt,i)
+            updateParticleToTime!(rs,vs,innerδts,eventData.δt,j)
             
             r_ij = rs[j] - rs[i]
             v_ij = vs[j] - vs[i]
@@ -137,7 +137,7 @@ function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Floa
 
             updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
             #For j we need to remove their stored event first
-            deleteNode!(eventTree, nextEventTimes[j])
+            deleteNode!(eventTree, j, nextEventTimes[j])
             updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
 
         end #if
@@ -167,9 +167,9 @@ function performEDMD!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float
     end #for pIdx
 
     while MDSimTime < params.dt
-        (nextEventData, nextEventδt) = getTreeMin(eventTree)
-        deleteNode!(eventTree, nextEventδt)
-        performEvent!(rs, vs, innerδts, n_cols, nextEventData, nextEventδt, eventTree, nextEventTimes, params)
+        nextEventData = getTreeMin(eventTree)
+        deleteNode!(eventTree, nextEventData)
+        performEvent!(rs, vs, innerδts, n_cols, nextEventData, eventTree, nextEventTimes, params)
         MDSimTime = nextEventδt
     end #while MDSimTime
 
