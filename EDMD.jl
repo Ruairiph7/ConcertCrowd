@@ -138,7 +138,7 @@ function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Floa
             updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
             #For j we need to remove their stored event first
             deleteNode!(eventTree, j, nextEventTimes[j])
-            updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
+            updateTreeForPerson!(eventTree, nextEventTimes, j,rs,vs,innerδts,n_cols,params)
 
         end #if
 
@@ -170,7 +170,7 @@ function performEDMD!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float
         nextEventData = getTreeMin(eventTree)
         deleteNode!(eventTree, nextEventData)
         performEvent!(rs, vs, innerδts, n_cols, nextEventData, eventTree, nextEventTimes, params)
-        MDSimTime = nextEventδt
+        MDSimTime = nextEventData.δt
     end #while MDSimTime
 
     #We have reached the end of the timestep with no further collisions
