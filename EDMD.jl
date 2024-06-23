@@ -1,6 +1,5 @@
-using LinearAlgebra
 include("EventTrees.jl")
-include("ParamStructDefinitions.jl")
+include("NeighbourLists.jl")
 
 ##############################################################
 #Event-Driven Molecular dynamics within each dt---------------
@@ -31,8 +30,16 @@ function getTimeToWallCollisions(r::SVector{2,Float64}, v::SVector{2,Float64}, R
     return δtx, δty
 end #function
 
-function getTimeToNeighbourUpdate()
-    return Inf
+function getTimeToNeighbourUpdate(r::SVector{2,Float64}, v::SVector{2,Float64}, r_n::SVector{2,Float64}, R::Float64, alpha::Float64)
+    r_in::SVector{2,Float64} = r - r_n
+    b_ni::Float64 = r_in ⋅ v
+    sqrtTerm::Float64 = b_ni^2 - (v⋅v)*((r_in ⋅ r_in) - (alpha*R)^2)
+    if sqrtTerm >= 0
+        δt = (-b_ni + sqrt(sqrtTerm))/(v⋅v) #CHECK EXPRESSION
+    else
+        δt = Inf
+    end #if
+    return δt
 end #function
 
 function getTimeToParticleCollision(rᵢ::SVector{2,Float64}, rⱼ::SVector{2,Float64}, vᵢ::SVector{2,Float64}, vⱼ::SVector{2,Float64}, innerδtᵢ::Float64, innerδtⱼ::Float64, Rᵢ::Float64, Rⱼ::Float64)
@@ -51,7 +58,7 @@ function getTimeToParticleCollision(rᵢ::SVector{2,Float64}, rⱼ::SVector{2,Fl
 end #function
 
 
-function updateTreeForPerson!(eventTree::EventTree, nextEventTimes::Vector{Float64}, i::Int, rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float64}}, innerδts::Vector{Float64}, n_cols::Vector{Int64}, params::CrowdParams)
+function updateTreeForPerson!(eventTree::EventTree, nextEventTimes::Vector{Float64}, cellList::CellList, nghbrLists::NeighbourLists, i::Int, rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float64}}, innerδts::Vector{Float64}, n_cols::Vector{Int64}, params::CrowdParams)
     #Store:
         #x wall collisions as node.people = [i,0]
         #y wall collisions as node.people = [i,-1]
@@ -59,7 +66,7 @@ function updateTreeForPerson!(eventTree::EventTree, nextEventTimes::Vector{Float
         #particle collisions as node.people = [i,j,n_col_j]
 
     (xWallδt, yWallδt) = getTimeToWallCollisions(rs[i],vs[i],params.Rs[i],params)
-    neighbourListδt = getTimeToNeighbourUpdate()
+    neighbourListδt = getTimeToNeighbourUpdate(rs[i],vs[i],nghbrLists.r_ns[i],params.Rs[i],params.alpha)
 
     (minδtSoFar,typeIndicator) = findmin((xWallδt,yWallδt,neighbourListδt))
     if typeIndicator == 1
@@ -70,8 +77,9 @@ function updateTreeForPerson!(eventTree::EventTree, nextEventTimes::Vector{Float
         updateSoFar = [i,-2]
     end #if 
 
-    for j = eachindex(rs)
-        j == i && continue
+    for j = nghbrLists.lists[i].list
+        j == i && continue #Unnecessary - but kept for safety
+        j == 0 && continue #Skip empty elements
         δt_ij = getTimeToParticleCollision(rs[i],rs[j],vs[i],vs[j],innerδts[i],innerδts[j],params.Rs[i],params.Rs[j])
         δt_ij > minδtSoFar && continue
         minδtSoFar = δt_ij
@@ -92,7 +100,7 @@ function updateTreeForPerson!(eventTree::EventTree, nextEventTimes::Vector{Float
 end #function
 
 
-function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float64}}, innerδts::Vector{Float64}, n_cols::Vector{Int64}, eventData::EventData, eventTree::EventTree, nextEventTimes::Vector{Float64}, params::CrowdParams)
+function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float64}}, innerδts::Vector{Float64}, n_cols::Vector{Int64}, eventData::EventData, eventTree::EventTree, nextEventTimes::Vector{Float64}, cellList::CellList, nghbrLists::NeighbourLists, params::CrowdParams)
 
     if length(eventData.details) == 2
         if eventData.details[2] == 0 #It's an x wall collision
@@ -101,7 +109,7 @@ function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Floa
             updateParticleToTime!(rs,vs,innerδts,eventData.δt,i)
             vs[i] = SVector(-vs[i][1],vs[i][2])
             n_cols[i] += 1
-            updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
+            updateTreeForPerson!(eventTree, nextEventTimes, cellList, nghbrLists, i,rs,vs,innerδts,n_cols,params)
 
         elseif eventData.details[2] == -1 #It's a y wall collision
 
@@ -109,9 +117,29 @@ function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Floa
             updateParticleToTime!(rs,vs,innerδts,eventData.δt,i)
             vs[i] = SVector(vs[i][1],-vs[i][2])
             n_cols[i] += 1
-            updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
+            updateTreeForPerson!(eventTree, nextEventTimes, cellList, nghbrLists, i,rs,vs,innerδts,n_cols,params)
 
         elseif eventData.details[2] == -2 #It's a neighbourlist update
+            
+            i = eventData.details[1] #Get idx of person involved
+            updateParticleToTime!(rs,vs,innerδts,eventData.δt,i)
+            nghbrLists.r_ns[i] = rs[i] #Get r_n for person i
+            findCell!(cellList,rs,i) #Update cell list with new location
+            #Remove i from any neighbour lists, empty nghbr list for i
+            for j = nghbrLists.lists[i].list
+                j == 0 && continue #Skip empty elements
+                removeFromList!(nghbrLists.lists[j],i)
+            end #for j
+            emptyList!(nghbrLists.lists[i])
+            #Find new neighbours of i
+            fillList!(nghbrLists.lists[i],nghbrLists.r_ns,cellList,params)
+            #Add i to nghbr lists of its new neighbours
+            for j = nghbrLists.lists[i].list
+                j == 0 && continue #Skip empty elements
+                addToList!(nghbrLists.lists[j],i)
+            end #for j
+            #Update event tree with new event
+            updateTreeForPerson!(eventTree, nextEventTimes, cellList, nghbrLists, i,rs,vs,innerδts,n_cols,params)
 
         end #if
     elseif length(eventData.details) == 3 #It's a person collision
@@ -120,7 +148,7 @@ function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Floa
         j = eventData.details[2]
 
         if n_cols[j] != eventData.details[3] #j has collided since scheduling the event
-            updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
+            updateTreeForPerson!(eventTree, nextEventTimes, cellList, nghbrLists, i,rs,vs,innerδts,n_cols,params)
             return nothing
         else
             updateParticleToTime!(rs,vs,innerδts,eventData.δt,i)
@@ -135,10 +163,10 @@ function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Floa
             n_cols[i] += 1
             n_cols[j] += 1
 
-            updateTreeForPerson!(eventTree, nextEventTimes, i,rs,vs,innerδts,n_cols,params)
+            updateTreeForPerson!(eventTree, nextEventTimes, cellList, nghbrLists, i,rs,vs,innerδts,n_cols,params)
             #For j we need to remove their stored event first
             deleteNode!(eventTree, j, nextEventTimes[j])
-            updateTreeForPerson!(eventTree, nextEventTimes, j,rs,vs,innerδts,n_cols,params)
+            updateTreeForPerson!(eventTree, nextEventTimes, cellList, nghbrLists, j,rs,vs,innerδts,n_cols,params)
 
         end #if
 
@@ -150,9 +178,9 @@ function performEvent!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Floa
 end #function
 
 
-function performEDMD!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float64}}, innerδts::Vector{Float64}, n_cols::Vector{Int64}, trial_Δrs::Vector{SVector{2,Float64}}, eventTree::EventTree, nextEventTimes::Vector{Float64}, params::CrowdParams, musicParams::MusicParams)
+function performEDMD!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float64}}, innerδts::Vector{Float64}, n_cols::Vector{Int64}, trial_Δrs::Vector{SVector{2,Float64}}, eventTree::EventTree, nextEventTimes::Vector{Float64}, cellList::CellList, nghbrLists::NeighbourLists, params::CrowdParams, musicParams::MusicParams)
     
-    #Empty event tree --- MAYBE THIS HAPPENS BY DEFAULT AFTER ALL UPDATES?
+    #Empty event tree --- THIS SHOULD HAPPEN BY DEFAULT AFTER ALL UPDATES
     eventTree = EventTree([0],params.dt)
 
     #Set innerδts, MDSimTime to be zero
@@ -162,14 +190,14 @@ function performEDMD!(rs::Vector{SVector{2,Float64}}, vs::Vector{SVector{2,Float
     #Initialise the tree with first updates for each person
     #Also store the fictitious velocities in vs for future ease
     for pIdx = eachindex(rs)
-        updateTreeForPerson!(eventTree, nextEventTimes, pIdx, rs, trial_Δrs/params.dt,innerδts,n_cols,params)
+        updateTreeForPerson!(eventTree, nextEventTimes, cellList, nghbrLists, pIdx, rs, trial_Δrs/params.dt,innerδts,n_cols,params)
         vs[pIdx] = trial_Δrs[pIdx]/params.dt
     end #for pIdx
 
     while MDSimTime < params.dt
         nextEventData = getTreeMin(eventTree)
         deleteNode!(eventTree, nextEventData)
-        performEvent!(rs, vs, innerδts, n_cols, nextEventData, eventTree, nextEventTimes, params)
+        performEvent!(rs, vs, innerδts, n_cols, nextEventData, eventTree, nextEventTimes, cellList, nghbrLists, params)
         MDSimTime = nextEventData.δt
     end #while MDSimTime
 
