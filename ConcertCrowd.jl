@@ -35,11 +35,22 @@ function noiseScaleFactor(r::SVector{2,Float64},params::CrowdParams)
     return exp(-r[2]/params.boundaryScale_noise)
 end #function
 
+function U_r(r::SVector{2,Float64},params::CrowdParams)
+    #Get mosh pit potential for r 
+    return SVector{2,Float64}(0.0,0.0)
+end #function
+
+function U_θ(r::SVector{2,Float64}, θ::Float64, params::CrowdParams)
+    #Get mosh pit potential for θ 
+    return 0.0
+end #function
+
 function performBM!(trial_Δrs::Vector{SVector{2,Float64}}, θs::Vector{Float64}, rs::Vector{SVector{2,Float64}}, params::CrowdParams, musicParams::MusicParams)
     for pIdx = eachindex(trial_Δrs)
         #TO-DO:: Have added pull to front, but need to add moshpits
-        trial_Δrs[pIdx] = params.dt*v(rs[pIdx],θs[pIdx],params) + sqrt(2*noiseScaleFactor(rs[pIdx],params)*musicParams.noise*params.dt)*randn(2)
-        θs[pIdx] += params.dt*musicParams.frontRowPull*sin((-0.5*π)-θs[pIdx]) + sqrt(2*noiseScaleFactor(rs[pIdx],params)*musicParams.angleNoise*params.dt)*randn()
+        #Maybe have v also change based on moshpits?
+        trial_Δrs[pIdx] = params.dt*v(rs[pIdx],θs[pIdx],params) + U_r(rs[pIdx],params) + sqrt(2*noiseScaleFactor(rs[pIdx],params)*musicParams.noise*params.dt)*randn(2)
+        θs[pIdx] += params.dt*musicParams.frontRowPull*sin((-0.5*π)-θs[pIdx]) + U_θ(rs[pIdx],θs[pIdx],params) + sqrt(2*noiseScaleFactor(rs[pIdx],params)*musicParams.angleNoise*params.dt)*randn()
     end #for pIdx
     return nothing
 end #function
