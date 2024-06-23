@@ -31,12 +31,15 @@ function v(r::SVector{2,Float64},θ::Float64,params::CrowdParams)
     return modV * SVector{2,Float64}(cos(θ),sin(θ))
 end #function
 
+function noiseScaleFactor(r::SVector{2,Float64},params::CrowdParams)
+    return exp(-r[2]/params.boundaryScale)
+end #function
+
 function performBM!(trial_Δrs::Vector{SVector{2,Float64}}, θs::Vector{Float64}, rs::Vector{SVector{2,Float64}}, params::CrowdParams, musicParams::MusicParams)
     for pIdx = eachindex(trial_Δrs)
         #TO-DO:: Have added pull to front, but need to add moshpits
-        #TO-DO:: Maybe make noise decrease near front
-        trial_Δrs[pIdx] = params.dt*v(rs[pIdx],θs[pIdx],params) + sqrt(2*musicParams.noise*params.dt)*randn(2)
-        θs[pIdx] += params.dt*musicParams.frontRowPull*sin((-0.5*π)-θs[pIdx]) + sqrt(2*musicParams.angleNoise*params.dt)*randn()
+        trial_Δrs[pIdx] = params.dt*v(rs[pIdx],θs[pIdx],params) + sqrt(2*noiseScaleFactor(rs[pIdx],params)*musicParams.noise*params.dt)*randn(2)
+        θs[pIdx] += params.dt*musicParams.frontRowPull*sin((-0.5*π)-θs[pIdx]) + sqrt(2*noiseScaleFactor(rs[pIdx],params)*musicParams.angleNoise*params.dt)*randn()
     end #for pIdx
     return nothing
 end #function
