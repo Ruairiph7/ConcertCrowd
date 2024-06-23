@@ -66,6 +66,20 @@ function startConcert(figAndBoxes::Tuple{Figure,Textbox,Textbox,Textbox,Textbox,
     tb_angleNoise = figAndBoxes[6]
     ax = figAndBoxes[7]
     display(fig)
+
+    #Define "person" marker for the plot
+    personMarker = BezierPath([
+       MoveTo(Point(1,0)),
+       EllipticalArc(Point(0,0),1,1,0,0,2pi),
+       MoveTo(Point(0.505,0.4)),
+       EllipticalArc(Point(0.5,0.4),0.22,0.22,0,0,-2pi),
+       MoveTo(Point(0.505,-0.4)),
+       EllipticalArc(Point(0.5,-0.4),0.22,0.22,0,0,-2pi),
+       ClosePath(),
+    ])
+    #Set colours for the plot
+    peopleColors = rand(params.N)
+    peopleColorMap = :darkrainbow
     
     tb_noise.stored_string = string(musicParams.noise)
     tb_moshRate.stored_string = string(musicParams.moshRate)
@@ -111,7 +125,7 @@ function startConcert(figAndBoxes::Tuple{Figure,Textbox,Textbox,Textbox,Textbox,
     end #on
 
     while running[] == true
-        GLMakie.scatter!(ax,[rs[i][1] for i in eachindex(rs)], [rs[i][2] for i in eachindex(rs)],markersize = markerSize[],color=:blue)
+        GLMakie.scatter!(ax,[rs[i][1] for i in eachindex(rs)], [rs[i][2] for i in eachindex(rs)],markersize = markerSize[], color=peopleColors, colormap = peopleColorMap, marker = personMarker, rotation = θs)
         performBM!(trial_Δrs, θs, rs, params, musicParams[])
         performEDMD!(rs, vs, innerδts, n_cols, trial_Δrs, eventTree, nextEventTimes, cellList, nghbrLists, params, musicParams[])
         sleep(1/maxFps)
@@ -135,13 +149,13 @@ function startConcert(params::CrowdParams, musicParams::MusicParams, maxFps::Int
     tb_noise = Textbox(fig[2,2][2,1],validator=Float64,placeholder=string(musicParams.noise),tellwidth=false)
     tb_moshRate = Textbox(fig[2,2][2,2],validator=Float64,placeholder=string(musicParams.moshRate),tellwidth=false)
     tb_frontRowPull = Textbox(fig[2,2][2,3],validator=Float64,placeholder=string(musicParams.frontRowPull),tellwidth=false)
-    tb_markersize = Textbox(fig[2,2][2,4],validator=Float64,placeholder=string(45),tellwidth=false)
+    tb_markersize = Textbox(fig[2,2][2,4],validator=Float64,placeholder=string(16),tellwidth=false)
     tb_angleNoise = Textbox(fig[2,2][2,5],validator=Float64,placeholder=string(musicParams.angleNoise),tellwidth=false)
     
     tb_noise.stored_string = string(musicParams.noise)
     tb_moshRate.stored_string = string(musicParams.moshRate)
     tb_frontRowPull.stored_string = string(musicParams.frontRowPull)
-    tb_markersize.stored_string = string(45) #Bodge for now
+    tb_markersize.stored_string = string(16) #Bodge for now
     tb_angleNoise.stored_string = string(musicParams.angleNoise)
 
     ax = Axis(fig[1,1:3],limits=(0,params.Lx,0,params.Ly),aspect=AxisAspect(1))
