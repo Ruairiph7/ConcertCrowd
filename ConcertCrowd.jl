@@ -1,7 +1,7 @@
 using GLMakie
 include("EDMD.jl")
 
-function openDoors!(rs::Vector{SVector{2,Float64}}, params::CrowdParams)
+function openDoors!(rs::Vector{SVector{2,Float64}}, θs::Vector{Float64}, params::CrowdParams)
     packingDiameter = 2*maximum(params.Rs) + 0.2
     maxX = floor(Int,params.Lx / packingDiameter)
     maxY = floor(Int,params.Ly / packingDiameter)
@@ -19,25 +19,34 @@ function openDoors!(rs::Vector{SVector{2,Float64}}, params::CrowdParams)
                 break
             else
                 rs[pIdx] = [(xIdx-0.5)*packingDiameter,(yIdx-0.5)*packingDiameter]
+                θs[pIdx] = 2π*rand()
             end #if
         end #for yIdx
     end #for xIdx
     return nothing
 end #function
 
-function getTrialDisplacements!(trial_Δrs::Vector{SVector{2,Float64}}, rs::Vector{SVector{2,Float64}}, params::CrowdParams, musicParams::MusicParams)
+function v(r::SVector{2,Float64},θ::Float64,params::CrowdParams)
+    modV = params.v₀ * exp(-params.boundaryScale/r[2])
+    return modV * SVector{2,Float64}(cos(θ),sin(θ))
+end #function
+
+function performBM!(trial_Δrs::Vector{SVector{2,Float64}}, θs::Vector{Float64}, rs::Vector{SVector{2,Float64}}, params::CrowdParams, musicParams::MusicParams)
     for pIdx = eachindex(trial_Δrs)
         #TO-DO:: Have added pull to front, but need to add moshpits
-        trial_Δrs[pIdx] = sqrt(2*musicParams.noise*params.dt)*randn(2) - (musicParams.frontRowPull*params.dt*(params.Ly - rs[pIdx][2]))*[0,1]
+        #TO-DO:: Maybe make noise decrease near front
+        trial_Δrs[pIdx] = params.dt*v(rs[pIdx],θs[pIdx],params) + sqrt(2*musicParams.noise*params.dt)*randn(2)
+        θs[pIdx] += params.dt*musicParams.frontRowPull*sin((-0.5*π)-θs[pIdx]) + sqrt(2*musicParams.angleNoise*params.dt)*randn()
     end #for pIdx
     return nothing
 end #function
 
 #Method when the figure has been initialised
-function startConcert(figAndBoxes::Tuple{Figure,Textbox,Textbox,Textbox,Textbox,Axis}, params::CrowdParams, musicParams::MusicParams, maxFps::Int)
+function startConcert(figAndBoxes::Tuple{Figure,Textbox,Textbox,Textbox,Textbox,Textbox,Axis}, params::CrowdParams, musicParams::MusicParams, maxFps::Int)
 
     rs = Vector{SVector{2,Float64}}(undef,params.N)
-    openDoors!(rs,params)
+    θs = Vector{Float64}(undef,params.N)
+    openDoors!(rs, θs, params)
 
     vs = similar(rs)
     innerδts = Vector{Float64}(undef,params.N)
@@ -54,12 +63,14 @@ function startConcert(figAndBoxes::Tuple{Figure,Textbox,Textbox,Textbox,Textbox,
     tb_moshRate = figAndBoxes[3]
     tb_frontRowPull = figAndBoxes[4]
     tb_markersize = figAndBoxes[5]
-    ax = figAndBoxes[6]
+    tb_angleNoise = figAndBoxes[6]
+    ax = figAndBoxes[7]
     display(fig)
     
     tb_noise.stored_string = string(musicParams.noise)
     tb_moshRate.stored_string = string(musicParams.moshRate)
     tb_frontRowPull.stored_string = string(musicParams.frontRowPull)
+    tb_angleNoise.stored_string = string(musicParams.angleNoise)
     
     running = Observable(true)
     musicParams = Observable(musicParams)
@@ -85,6 +96,11 @@ function startConcert(figAndBoxes::Tuple{Figure,Textbox,Textbox,Textbox,Textbox,
         markerSize[] = parse(Float64,s)
     end #on
 
+    #Update angleNoise if value is changed
+    on(tb_angleNoise.stored_string) do s
+        musicParams[].angleNoise = parse(Float64,s)
+    end #on
+
     #Quit if user presses q
     on(events(fig).keyboardbutton) do event
         if event.action == Keyboard.press
@@ -96,9 +112,7 @@ function startConcert(figAndBoxes::Tuple{Figure,Textbox,Textbox,Textbox,Textbox,
 
     while running[] == true
         GLMakie.scatter!(ax,[rs[i][1] for i in eachindex(rs)], [rs[i][2] for i in eachindex(rs)],markersize = markerSize[],color=:blue)
-        getTrialDisplacements!(trial_Δrs, rs, params, musicParams[])
-        #TO-DO:: CURRENTLY ONLY INCLUDING FRONT/MOSHPIT FORCES IN THE BROWNIAN MOTION stepsBeforeFirstOPSave
-        #--> COULD ADD THEM TO THE EDMD BIT
+        performBM!(trial_Δrs, θs, rs, params, musicParams[])
         performEDMD!(rs, vs, innerδts, n_cols, trial_Δrs, eventTree, nextEventTimes, cellList, nghbrLists, params, musicParams[])
         sleep(1/maxFps)
         empty!(ax)
@@ -116,20 +130,23 @@ function startConcert(params::CrowdParams, musicParams::MusicParams, maxFps::Int
     Label(fig[2,2][1,2],"moshRate:")
     Label(fig[2,2][1,3],"frontRowPull:")
     Label(fig[2,2][1,4],"markersize:")
+    Label(fig[2,2][1,5],"angleNoise:")
     
     tb_noise = Textbox(fig[2,2][2,1],validator=Float64,placeholder=string(musicParams.noise),tellwidth=false)
     tb_moshRate = Textbox(fig[2,2][2,2],validator=Float64,placeholder=string(musicParams.moshRate),tellwidth=false)
     tb_frontRowPull = Textbox(fig[2,2][2,3],validator=Float64,placeholder=string(musicParams.frontRowPull),tellwidth=false)
     tb_markersize = Textbox(fig[2,2][2,4],validator=Float64,placeholder=string(45),tellwidth=false)
+    tb_angleNoise = Textbox(fig[2,2][2,5],validator=Float64,placeholder=string(musicParams.angleNoise),tellwidth=false)
     
     tb_noise.stored_string = string(musicParams.noise)
     tb_moshRate.stored_string = string(musicParams.moshRate)
     tb_frontRowPull.stored_string = string(musicParams.frontRowPull)
     tb_markersize.stored_string = string(45) #Bodge for now
+    tb_angleNoise.stored_string = string(musicParams.angleNoise)
 
     ax = Axis(fig[1,1:3],limits=(0,params.Lx,0,params.Ly),aspect=AxisAspect(1))
 
-    figAndBoxes = (fig,tb_noise,tb_moshRate,tb_frontRowPull,tb_markersize,ax)
+    figAndBoxes = (fig,tb_noise,tb_moshRate,tb_frontRowPull,tb_markersize,tb_angleNoise,ax)
 
     startConcert(figAndBoxes,params,musicParams,maxFps)
 
