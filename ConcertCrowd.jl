@@ -138,13 +138,18 @@ function startConcert(figAndBoxes::Tuple{Figure,Textbox,Textbox,Textbox,Textbox,
         end #if
     end #on
 
+    println("Starting simulation...")
     while running[] == true
         GLMakie.scatter!(ax,[rs[i][1] for i in eachindex(rs)], [rs[i][2] for i in eachindex(rs)],markersize = markerSize[], color=peopleColors, colormap = peopleColorMap, marker = personMarker, rotation = θs)
         performBM!(trial_Δrs, θs, rs, params, musicParams[])
         performEDMD!(rs, vs, innerδts, n_cols, trial_Δrs, eventTree, nextEventTimes, cellList, nghbrLists, params, musicParams[])
         sleep(1/maxFps)
         empty!(ax)
-    end #for timestep
+        print("\e[2K");print("\e[1G")
+        print("Total collisions calculated: ", sum(n_cols))
+    end #while running
+    println("Simulation finished.")
+
 
     return nothing
 end #function
