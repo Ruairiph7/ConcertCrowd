@@ -36,7 +36,7 @@ function CrowdParams(Rs, Lx, Ly, N, dt, maxSteps, masses, cBoxSize, alpha, maxNe
     end #if
 end #function
 
-struct MusicParams{T_Float<:Real}
+mutable struct MusicParams{T_Float<:Real}
     noise::T_Float
     moshRate::T_Float
     frontRowPull::T_Float
