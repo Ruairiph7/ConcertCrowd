@@ -16,25 +16,26 @@ struct CrowdParams{T_L<:Real,T_Float<:Real}
     maxNeighbours::Int #Maximum neighbour list size
     v₀::T_Float #Limiting speed far from the stage
     boundaryScale::T_Float #Scale for the region near the stage where speed drops
+    boundaryScale_noise::T_Float #Scale for the region near the stage where noise increases
 
-    function CrowdParams{T_L,T_Float}(Rs::Real, Lx, Ly, N, dt, maxSteps, masses, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale) where {T_L<:Real,T_Float<:Real}
-        new{T_L,T_Float}(Rs*ones(T_Float,N), Lx, Ly, N, dt, maxSteps, masses, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale)
+    function CrowdParams{T_L,T_Float}(Rs::Real, Lx, Ly, N, dt, maxSteps, masses, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale, boundaryScale_noise) where {T_L<:Real,T_Float<:Real}
+        new{T_L,T_Float}(Rs*ones(T_Float,N), Lx, Ly, N, dt, maxSteps, masses, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale, boundaryScale_noise)
     end #function
-    function CrowdParams{T_L,T_Float}(Rs, Lx, Ly, N, dt, maxSteps, masses::Real, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale) where {T_L<:Real,T_Float<:Real}
-        new{T_L,T_Float}(Rs, Lx, Ly, N, dt, maxSteps, masses*ones(T_Float,N), cBoxSize, alpha, maxNeighbours, v₀, boundaryScale)
+    function CrowdParams{T_L,T_Float}(Rs, Lx, Ly, N, dt, maxSteps, masses::Real, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale, boundaryScale_noise) where {T_L<:Real,T_Float<:Real}
+        new{T_L,T_Float}(Rs, Lx, Ly, N, dt, maxSteps, masses*ones(T_Float,N), cBoxSize, alpha, maxNeighbours, v₀, boundaryScale, boundaryScale_noise)
     end #function
-    function CrowdParams{T_L,T_Float}(Rs::Real, Lx, Ly, N, dt, maxSteps, masses::Real, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale) where {T_L<:Real,T_Float<:Real}
-        new{T_L,T_Float}(Rs*ones(T_Float,N), Lx, Ly, N, dt, maxSteps, masses*ones(T_Float,N), cBoxSize, alpha, maxNeighbours, v₀, boundaryScale)
+    function CrowdParams{T_L,T_Float}(Rs::Real, Lx, Ly, N, dt, maxSteps, masses::Real, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale, boundaryScale_noise) where {T_L<:Real,T_Float<:Real}
+        new{T_L,T_Float}(Rs*ones(T_Float,N), Lx, Ly, N, dt, maxSteps, masses*ones(T_Float,N), cBoxSize, alpha, maxNeighbours, v₀, boundaryScale, boundaryScale_noise)
     end #function
     
 end #struct
 
-function CrowdParams(Rs, Lx, Ly, N, dt, maxSteps, masses, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale) 
+function CrowdParams(Rs, Lx, Ly, N, dt, maxSteps, masses, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale, boundaryScale_noise) 
     #If cBoxSize does not divide into Lx or Ly, give an error
     if (Lx % cBoxSize, Ly % cBoxSize) != (0,0) 
         error("cBoxSize does not divide Lx and Ly")
     else
-        return CrowdParams{typeof(Lx),typeof(dt)}(Rs, Lx, Ly, N, dt, maxSteps, masses, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale)
+        return CrowdParams{typeof(Lx),typeof(dt)}(Rs, Lx, Ly, N, dt, maxSteps, masses, cBoxSize, alpha, maxNeighbours, v₀, boundaryScale, boundaryScale_noise)
     end #if
 end #function
 

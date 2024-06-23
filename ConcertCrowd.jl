@@ -32,7 +32,7 @@ function v(r::SVector{2,Float64},θ::Float64,params::CrowdParams)
 end #function
 
 function noiseScaleFactor(r::SVector{2,Float64},params::CrowdParams)
-    return exp(-r[2]/params.boundaryScale)
+    return exp(-r[2]/params.boundaryScale_noise)
 end #function
 
 function performBM!(trial_Δrs::Vector{SVector{2,Float64}}, θs::Vector{Float64}, rs::Vector{SVector{2,Float64}}, params::CrowdParams, musicParams::MusicParams)
